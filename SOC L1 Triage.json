@@ -1,0 +1,285 @@
+{
+  "name": "SOC L1 Triage",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "wazuh-alert",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "730fa7a8-71c8-4c47-81c5-a0fccaf027c4",
+      "name": "Webhook",
+      "webhookId": "9e48e2b8-c97d-439e-9685-ffae3e9948b3"
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={\n  \"title\": \"{{ $json.body.title }}\",\n  \"rule_id\": \"{{ $json.body.rule_id }}\",\n  \"level\": \"{{ $json.body.all_fields.rule.level }}\",\n  \"agent\": \"{{ $json.body.all_fields.agent.name }}\",\n     \"mitre\": \"{{ $json.body.all_fields.rule.mitre?.technique?.[0] || 'none' }}\",\n   \"source_ip\": \"{{ $json.body.all_fields.data?.srcip || ($json.body.text.match(/rhost=([0-9.]+)/) || [])[1] || '' }}\",\n   \"raw_log\": \"{{ $json.body.text }}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        224,
+        0
+      ],
+      "id": "2b30c112-b7cc-4cd9-88cf-3549a6610334",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "=   {\n        \"ip_type\": \"{{ !$json.source_ip ? 'none' : (($json.source_ip.startsWith('192.168.') || $json.source_ip.startsWith('10.')) ? 'internal' : 'external') }}\",\n     \"severity_label\": \"{{ Number($json.level) >= 12 ? 'critical' : Number($json.level) >= 10 ? 'high' : Number($json.level) >= 7 ? 'medium' : 'low' }}\"\n   }",
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        448,
+        0
+      ],
+      "id": "fc84ef2f-74dd-41b1-b657-67af0aa9989e",
+      "name": "Edit Fields1"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=   You are a SOC Level 1 analyst. Triage this security alert.\n\n   Alert: {{ $json.title }}\n   Rule ID: {{ $json.rule_id }}\n   Severity level: {{ $json.level }} ({{ $json.severity_label }})\n   Affected machine: {{ $json.agent }}\n   MITRE technique: {{ $json.mitre }}\n   Source IP: {{ $json.source_ip }} ({{ $json.ip_type }})\n   Log line: {{ $json.raw_log }}\n\n   Answer in exactly this format:\n   VERDICT: true positive, false positive, or needs investigation\n   CONFIDENCE: low, medium or high\n   REASON: one or two sentences\n   NEXT STEP: one recommended action\n\n   Use only the facts above. If something is unknown, say so instead of guessing.",
+        "batching": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        672,
+        0
+      ],
+      "id": "22e3f29a-cd93-404c-b974-ddb9e7604cfc",
+      "name": "Basic LLM Chain"
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-3.6-flash",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.1,
+      "position": [
+        608,
+        208
+      ],
+      "id": "0db806a8-4877-4f52-b6b9-fc0bcf3a93ba",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "9Q5C9CAEDcqYAQzr",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fromEmail": "mpavi6705@gmail.com",
+        "toEmail": "mpavi6705@gmail.com",
+        "subject": "=   [SOC Alert] {{ $('Edit Fields1').item.json.severity_label }} - {{ $('Edit Fields1').item.json.title }}",
+        "emailFormat": "text",
+        "text": "=   SOC L1 Automated Triage\n\n   Alert: {{ $('Edit Fields1').item.json.title }}\n   Severity: {{ $('Edit Fields1').item.json.level }} ({{ $('Edit Fields1').item.json.severity_label }})\n   Machine: {{ $('Edit Fields1').item.json.agent }}\n   Source IP: {{ $('Edit Fields1').item.json.source_ip }} ({{ $('Edit Fields1').item.json.ip_type }})\n   MITRE technique: {{ $('Edit Fields1').item.json.mitre }}\n\n   AI triage:\n   {{ $json.text }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        1040,
+        0
+      ],
+      "id": "3183944f-8cc1-4f2c-8243-bbd9ae103611",
+      "name": "Send an Email",
+      "webhookId": "229b61c4-fb8d-47d7-81f1-20ac41c014ba",
+      "credentials": {
+        "smtp": {
+          "id": "OEqYnQ1KDJ2MZ1gZ",
+          "name": "SMTP account"
+        }
+      }
+    }
+  ],
+  "pinData": {
+    "Webhook": [
+      {
+        "json": {
+          "headers": {
+            "host": "localhost:5679",
+            "user-agent": "python-requests/2.33.1",
+            "accept-encoding": "gzip, deflate",
+            "accept": "*/*",
+            "connection": "keep-alive",
+            "content-type": "application/json",
+            "accept-charset": "UTF-8",
+            "content-length": "1316"
+          },
+          "params": {},
+          "query": {},
+          "body": {
+            "severity": 3,
+            "pretext": "WAZUH Alert",
+            "title": "syslog: User missed the password more than one time",
+            "text": "Sep 20 16:38:56 rockyserver sshd[6722]: PAM 2 more authentication failures; logname= uid=0 euid=0 tty=ssh ruser= rhost=192.168.31.75",
+            "rule_id": "2502",
+            "timestamp": "2026-09-20T22:08:56.252+0530",
+            "id": "1789922336.99637",
+            "all_fields": {
+              "timestamp": "2026-09-20T22:08:56.252+0530",
+              "rule": {
+                "level": 10,
+                "description": "syslog: User missed the password more than one time",
+                "id": "2502",
+                "mitre": {
+                  "id": [
+                    "T1110"
+                  ],
+                  "tactic": [
+                    "Credential Access"
+                  ],
+                  "technique": [
+                    "Brute Force"
+                  ]
+                },
+                "firedtimes": 1,
+                "mail": false,
+                "groups": [
+                  "syslog",
+                  "access_control",
+                  "authentication_failed"
+                ],
+                "pci_dss": [
+                  "10.2.4",
+                  "10.2.5"
+                ],
+                "gpg13": [
+                  "7.8"
+                ],
+                "gdpr": [
+                  "IV_35.7.d",
+                  "IV_32.2"
+                ],
+                "hipaa": [
+                  "164.312.b"
+                ],
+                "nist_800_53": [
+                  "AU.14",
+                  "AC.7"
+                ],
+                "tsc": [
+                  "CC6.1",
+                  "CC6.8",
+                  "CC7.2",
+                  "CC7.3"
+                ]
+              },
+              "agent": {
+                "id": "001",
+                "name": "rocky-agent",
+                "ip": "192.168.31.99"
+              },
+              "manager": {
+                "name": "pavi-machine"
+              },
+              "id": "1789922336.99637",
+              "full_log": "Sep 20 16:38:56 rockyserver sshd[6722]: PAM 2 more authentication failures; logname= uid=0 euid=0 tty=ssh ruser= rhost=192.168.31.75",
+              "predecoder": {
+                "program_name": "sshd",
+                "timestamp": "Sep 20 16:38:56",
+                "hostname": "rockyserver"
+              },
+              "decoder": {
+                "name": "sshd"
+              },
+              "location": "journald"
+            }
+          },
+          "webhookUrl": "http://localhost:5678/webhook-test/wazuh-alert",
+          "executionMode": "test"
+        },
+        "pairedItem": {
+          "item": 0
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields1": {
+      "main": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Basic LLM Chain": {
+      "main": [
+        [
+          {
+            "node": "Send an Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "ee3a8aef-9575-4f3f-be2a-2f3b62745766",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "dbf70f426d9de61250f3556a0594757c7f79021e6bd1323983e4c92a26b83e60"
+  },
+  "nodeGroups": [],
+  "id": "6niWB4pyC67w6c39",
+  "tags": []
+}
